@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (resourceId === 'localhub-map-v1' && stateId) {
       const session = sessionStore.get(stateId);
 
-      if (!session || !session.results) {
+      if (!session || !session.search_results) {
         return new NextResponse('Session not found or expired', { status: 404 });
       }
 
@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
 }
 
 function generateMapHTML(session: any): string {
-  const { results, center, bounds } = session;
+  const { search_results, center, bounds } = session;
 
-  const markersData = results.map((place: any) => ({
+  const markersData = search_results.map((place: any) => ({
     lat: place.location.lat,
     lng: place.location.lng,
     name: place.name,
