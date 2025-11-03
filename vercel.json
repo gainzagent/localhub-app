@@ -1,16 +1,6 @@
 {
   "version": 2,
-  "name": "localhub-chatgpt-app",
   "regions": ["sfo1"],
-  "env": {
-    "GOOGLE_MAPS_API_KEY": "@google-maps-api-key",
-    "NODE_ENV": "production"
-  },
-  "build": {
-    "env": {
-      "GOOGLE_MAPS_API_KEY": "@google-maps-api-key"
-    }
-  },
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 10,
