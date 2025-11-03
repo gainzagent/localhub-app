@@ -7,6 +7,7 @@ export interface MCPToolSchema {
   type: string;
   properties: Record<string, unknown>;
   required?: string[];
+  additionalProperties?: boolean;
 }
 
 export interface MCPToolMetadata {
