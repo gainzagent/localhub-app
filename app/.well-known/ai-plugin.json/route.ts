@@ -1,0 +1,90 @@
+/**
+ * ChatGPT App Manifest Endpoint
+ * Serves the ai-plugin.json for ChatGPT app discovery
+ */
+
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  const manifest = {
+    schema_version: 'v1',
+    name_for_human: 'LocalHub',
+    name_for_model: 'localhub',
+    description_for_human:
+      'Find local businesses and get directions. Search for restaurants, shops, services, and more near you with an interactive map.',
+    description_for_model:
+      "LocalHub helps users find nearby businesses, restaurants, shops, and services. It provides search results with ratings, addresses, and phone numbers. Users can view results on an interactive map, get directions, and filter by rating or open hours. Best for queries like 'find restaurants near me', 'show cafes in [location]', 'where is the nearest pharmacy', etc.",
+    auth: {
+      type: 'none',
+    },
+    api: {
+      type: 'mcp',
+      url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://chatgpt.ngrok.dev'}/api/mcp`,
+      is_user_authenticated: false,
+    },
+    logo_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://chatgpt.ngrok.dev'}/logo.png`,
+    contact_email: 'support@localhub.app',
+    legal_info_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://chatgpt.ngrok.dev'}/legal`,
+    capabilities: {
+      search_places: {
+        description: 'Search for local businesses by type and location',
+        parameters: {
+          query: "Business type (e.g., 'pizza', 'pharmacy')",
+          location_text: "Location description (e.g., 'Auckland', 'near me')",
+          open_now: 'Filter to only businesses open now',
+          min_rating: 'Minimum rating (1-5 stars)',
+          sort_by: 'Sort by relevance, rating, or distance',
+        },
+      },
+      get_place_details: {
+        description: 'Get detailed information about a specific business',
+        parameters: {
+          place_id: 'Google Maps place ID from search results',
+        },
+      },
+      get_directions: {
+        description: 'Get directions from origin to destination',
+        parameters: {
+          origin: 'Starting location coordinates',
+          destination: 'Destination coordinates',
+          mode: 'Travel mode (driving, walking, transit, bicycling)',
+        },
+      },
+      compose_map_resource: {
+        description: 'Create an interactive fullscreen map with search results',
+        parameters: {
+          state_id: 'Session state ID from search results',
+          route_polyline: 'Optional encoded polyline for directions',
+        },
+      },
+    },
+    conversation_starters: [
+      'Find sushi restaurants near me',
+      'Show me cafes in Auckland',
+      "Where's the nearest pharmacy?",
+      'Find highly rated pizza places',
+      'I need a gym near Mission Bay',
+    ],
+  };
+
+  const response = NextResponse.json(manifest);
+  response.headers.set('Content-Type', 'application/json');
+  response.headers.set('Access-Control-Allow-Origin', 'https://chat.openai.com');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  return response;
+}
+
+export async function OPTIONS() {
+  const response = new NextResponse(null, { status: 204 });
+  response.headers.set('Access-Control-Allow-Origin', 'https://chat.openai.com');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Max-Age', '86400');
+  return response;
+}

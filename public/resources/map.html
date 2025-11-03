@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalHub Map</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #info-card {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      padding: 20px;
+      max-width: 400px;
+      width: 90%;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 1000;
+    }
+
+    #info-card.hidden {
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .info-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .info-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a1a;
+      flex: 1;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #666;
+      cursor: pointer;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .close-btn:hover {
+      color: #333;
+    }
+
+    .info-card-content {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .info-row {
+      margin: 8px 0;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .rating {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 8px 0;
+    }
+
+    .stars {
+      color: #f59e0b;
+      font-size: 16px;
+    }
+
+    .rating-text {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .info-card-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #1f2937;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 640px) {
+      #info-card {
+        bottom: 10px;
+        width: calc(100% - 20px);
+        padding: 16px;
+      }
+
+      .info-card-title {
+        font-size: 16px;
+      }
+
+      .btn {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map" role="application" aria-label="Interactive map showing search results"></div>
+
+  <div id="info-card" class="hidden" role="dialog" aria-labelledby="info-card-title">
+    <div class="info-card-header">
+      <h2 id="info-card-title" class="info-card-title"></h2>
+      <button class="close-btn" onclick="closeInfoCard()" aria-label="Close info card">×</button>
+    </div>
+    <div class="info-card-content">
+      <div id="info-address" class="info-row"></div>
+      <div id="info-rating" class="rating"></div>
+      <div id="info-phone" class="info-row"></div>
+    </div>
+    <div class="info-card-actions">
+      <a id="btn-call" class="btn btn-secondary" style="display: none;" aria-label="Call business">Call</a>
+      <button id="btn-directions" class="btn btn-primary" onclick="getDirections()" aria-label="Get directions">Get Directions</button>
+    </div>
+  </div>
+
+  <script>
+    let map;
+    let markers = [];
+    let selectedPlace = null;
+    let directionsRenderer = null;
+
+    // This will be populated by the server with actual data
+    const mapData = {
+      center: { lat: -36.8485, lng: 174.7633 }, // Default: Auckland
+      results: [],
+      apiKey: ''
+    };
+
+    function initMap() {
+      // Initialize map
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: mapData.center,
+        zoom: 13,
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      });
+
+      // Add markers for each result
+      mapData.results.forEach((place, index) => {
+        const marker = new google.maps.Marker({
+          position: place.location,
+          map: map,
+          title: place.name,
+          animation: google.maps.Animation.DROP,
+          label: {
+            text: String(index + 1),
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }
+        });
+
+        marker.addListener('click', () => {
+          showInfoCard(place);
+        });
+
+        markers.push(marker);
+      });
+
+      // Fit bounds to show all markers
+      if (markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        markers.forEach(marker => bounds.extend(marker.getPosition()));
+        map.fitBounds(bounds);
+      }
+
+      // Initialize directions renderer
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true
+      });
+    }
+
+    function showInfoCard(place) {
+      selectedPlace = place;
+
+      // Update card content
+      document.getElementById('info-card-title').textContent = place.name;
+      document.getElementById('info-address').innerHTML =
+        `<span class="info-label">Address:</span> ${place.address}`;
+
+      // Rating
+      if (place.rating) {
+        const stars = '★'.repeat(Math.round(place.rating)) +
+                     '☆'.repeat(5 - Math.round(place.rating));
+        document.getElementById('info-rating').innerHTML =
+          `<span class="stars">${stars}</span> ` +
+          `<span class="rating-text">${place.rating} (${place.user_ratings_total || 0} reviews)</span>`;
+      } else {
+        document.getElementById('info-rating').innerHTML = '';
+      }
+
+      // Phone
+      const phoneBtn = document.getElementById('btn-call');
+      if (place.phone) {
+        document.getElementById('info-phone').innerHTML =
+          `<span class="info-label">Phone:</span> ${place.phone}`;
+        phoneBtn.href = `tel:${place.phone}`;
+        phoneBtn.style.display = 'block';
+      } else {
+        document.getElementById('info-phone').innerHTML = '';
+        phoneBtn.style.display = 'none';
+      }
+
+      // Show card
+      document.getElementById('info-card').classList.remove('hidden');
+    }
+
+    function closeInfoCard() {
+      document.getElementById('info-card').classList.add('hidden');
+      selectedPlace = null;
+    }
+
+    function getDirections() {
+      if (!selectedPlace) return;
+
+      // In a real implementation, this would call the get_directions MCP tool
+      // For now, we'll use the Google Maps Directions service directly
+
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const origin = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+
+          const destination = selectedPlace.location;
+
+          const directionsService = new google.maps.DirectionsService();
+          directionsService.route(
+            {
+              origin: origin,
+              destination: destination,
+              travelMode: google.maps.TravelMode.DRIVING
+            },
+            (result, status) => {
+              if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+
+                // Update button text with duration
+                const duration = result.routes[0].legs[0].duration.text;
+                document.getElementById('btn-directions').textContent =
+                  `Route: ${duration}`;
+              } else {
+                alert('Could not calculate directions: ' + status);
+              }
+            }
+          );
+        },
+        (error) => {
+          alert('Could not get your location: ' + error.message);
+        }
+      );
+    }
+
+    // Close card when clicking outside
+    document.getElementById('map').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('map')) {
+        closeInfoCard();
+      }
+    });
+  </script>
+
+  <!-- Load Google Maps JavaScript API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
+</body>
+</html>
